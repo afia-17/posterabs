@@ -1,35 +1,8 @@
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
-import qrcode
+from PIL import Image, ImageDraw, ImageFont
 import os
 
-# ── Canvas 9:16 (1080 x 1920) ────────────────────────────────────────────────
-W, H = 1080, 1920
-img = Image.new("RGB", (W, H), "#0d4a1a")
-draw = ImageDraw.Draw(img)
+W = 900
 
-# ── Background gradient effect via rectangles ─────────────────────────────────
-for i in range(H):
-    ratio = i / H
-    r = int(13  + (34  - 13)  * ratio)
-    g = int(74  + (138 - 74)  * ratio)
-    b = int(26  + (14  - 26)  * ratio)
-    draw.line([(0, i), (W, i)], fill=(r, g, b))
-
-# ── Decorative circles ─────────────────────────────────────────────────────────
-draw.ellipse([(-150, -150), (350, 350)], fill=(255,255,255,20))
-draw.ellipse([(800, -80), (1200, 320)], fill=(255,255,255,15))
-draw.ellipse([(-100, 1600), (400, 2100)], fill=(255,255,255,10))
-draw.ellipse([(700, 1700), (1200, 2200)], fill=(90,180,40,40))
-
-# ── Fruit emoji row (top decoration) ─────────────────────────────────────────
-# Use colored circles as fruit decorations since emoji fonts may vary
-fruit_colors = ["#ff6b35","#4ecb45","#ff4444","#ffd700","#8B4513",
-                "#ff8c00","#dc143c","#32cd32","#ff69b4","#228b22"]
-fruit_x = [60, 170, 280, 390, 500, 610, 720, 830, 940, 1030]
-for x, col in zip(fruit_x, fruit_colors):
-    draw.ellipse([(x-22, 55), (x+22, 99)], fill=col)
-
-# ── Load fonts (fallback to default if not available) ─────────────────────────
 def load_font(size, bold=False):
     candidates = [
         f"/usr/share/fonts/truetype/dejavu/DejaVuSans{'Bold' if bold else ''}.ttf",
@@ -41,143 +14,434 @@ def load_font(size, bold=False):
             return ImageFont.truetype(c, size)
     return ImageFont.load_default()
 
-font_huge  = load_font(88, bold=True)
-font_large = load_font(58, bold=True)
-font_med   = load_font(40, bold=True)
-font_norm  = load_font(32)
-font_small = load_font(26)
-font_tiny  = load_font(22)
+def draw_browser_chrome(draw, w, h, url="https://tokobuahabsapp.streamlit.app"):
+    """Draw browser top bar"""
+    draw.rectangle([(0,0),(w,48)], fill="#e8e8e8")
+    draw.rectangle([(0,48),(w,50)], fill="#cccccc")
+    # Traffic lights
+    for x, c in [(18,"#ff5f57"),(38,"#ffbd2e"),(58,"#28c840")]:
+        draw.ellipse([(x-7,17),(x+7,31)], fill=c)
+    # URL bar
+    draw.rounded_rectangle([(80,10),(w-20,38)], radius=6, fill="white", outline="#bbbbbb", width=1)
+    font = load_font(13)
+    draw.text((90, 16), url, font=font, fill="#333")
 
-# ── Helper: centered text ──────────────────────────────────────────────────────
-def ctext(text, y, font, fill="white", shadow=True):
-    bbox = draw.textbbox((0, 0), text, font=font)
-    tw = bbox[2] - bbox[0]
-    x = (W - tw) // 2
-    if shadow:
-        draw.text((x+2, y+2), text, font=font, fill=(0,0,0,80))
-    draw.text((x, y), text, font=font, fill=fill)
+def draw_navbar(draw, img, y_start, w, active="Beranda"):
+    """Green navbar"""
+    draw.rectangle([(0, y_start),(w, y_start+54)], fill="#2d6a0a")
+    font_b = load_font(14, bold=True)
+    font_n = load_font(14)
+    items = ["🏠 Beranda","🛒 Pesan","🛍️ Keranjang","📞 Kontak"]
+    bw = w // len(items)
+    for i, item in enumerate(items):
+        is_active = item.split(" ")[1] == active or (active == "Beranda" and i == 0)
+        bg = "#1a4a05" if is_active else "#2d6a0a"
+        draw.rectangle([(i*bw, y_start),(i*bw+bw-2, y_start+54)], fill=bg)
+        bbox = draw.textbbox((0,0), item, font=font_b)
+        tw = bbox[2]-bbox[0]
+        draw.text((i*bw+(bw-tw)//2, y_start+16), item, font=font_b, fill="white")
 
-def ctext_stroke(text, y, font, fill="white", stroke_color="#1a6b2a", stroke=3):
-    bbox = draw.textbbox((0, 0), text, font=font)
-    tw = bbox[2] - bbox[0]
-    x = (W - tw) // 2
-    draw.text((x, y), text, font=font, fill=fill,
-              stroke_width=stroke, stroke_fill=stroke_color)
+def make_beranda():
+    H = 1100
+    img = Image.new("RGB", (W, H), "#f4fbee")
+    draw = ImageDraw.Draw(img)
+    draw_browser_chrome(draw, W, H)
+    draw_navbar(draw, img, 50, W, "Beranda")
 
-# ── TOP SECTION ───────────────────────────────────────────────────────────────
-# Green banner
-draw.rounded_rectangle([(40, 120), (1040, 220)], radius=20, fill="#1f7a2f")
-ctext("🍎  TOKO BUAH ABS  🍎", 138, font_large, fill="#ffffff")
+    # Hero
+    for i in range(200):
+        ratio = i/200
+        r = int(26 + (90-26)*ratio); g = int(74+(138-74)*ratio); b = int(5+(14-5)*ratio)
+        draw.line([(0, 104+i),(W, 104+i)], fill=(r,g,b))
+    fn_lg = load_font(32, bold=True)
+    fn_md = load_font(16, bold=True)
+    fn_sm = load_font(13)
+    def ct(text, y, font, fill="white"):
+        bb = draw.textbbox((0,0),text,font=font); tw=bb[2]-bb[0]
+        draw.text(((W-tw)//2, y), text, font=font, fill=fill)
+    ct("🍎 Toko Buah ABS", 118, fn_lg)
+    ct("Menjual Aneka Buah Lokal dan Impor · Segar Setiap Hari", 162, fn_md)
+    # badges
+    badges = ["🌿 Buah Lokal","✈️ Buah Impor","🎁 Parcel Buah","🚚 Antar ke Rumah","💳 QRIS & Tunai"]
+    bx = 30
+    for b in badges:
+        bb = draw.textbbox((0,0),b,font=fn_sm); bw=bb[2]-bb[0]+20
+        draw.rounded_rectangle([(bx,188),(bx+bw,210)],radius=10,fill=(255,255,255,60))
+        draw.text((bx+10,191),b,font=fn_sm,fill="white"); bx+=bw+8
+    ct("📍 Ciparigi, Bogor Utara  |  📞 087875957722  |  🕐 08.00-21.30", 220, fn_sm, fill="#ccffcc")
 
-# Tagline
-ctext("Menjual Aneka Buah Lokal dan Impor", 248, font_med, fill="#b6f5c0")
-ctext("Segar Setiap Hari — Langsung ke Rumah Anda", 298, font_small, fill="#d0f5d8")
+    # 4 buttons
+    btn_labels = ["🛒 Pesan Sekarang","🛍️ Keranjang","📍 Google Maps","📞 Kontak & Saran"]
+    btn_colors = ["#2d6a0a","#4a9d1a","#4285F4","#666"]
+    bw2 = (W-60)//4
+    for i,(lbl,col) in enumerate(zip(btn_labels, btn_colors)):
+        bx2 = 20 + i*(bw2+8)
+        draw.rounded_rectangle([(bx2,318),(bx2+bw2,352)],radius=8,fill=col)
+        bb=draw.textbbox((0,0),lbl,font=fn_sm); tw=bb[2]-bb[0]
+        draw.text((bx2+(bw2-tw)//2,329),lbl,font=fn_sm,fill="white")
 
-# ── DIVIDER LINE ─────────────────────────────────────────────────────────────
-draw.line([(80, 350), (1000, 350)], fill="#4caf1e", width=3)
+    # Info toko + produk unggulan
+    draw.rectangle([(20,370),(W//2-10,560)],fill="white",outline="#e0f2d0",width=2)
+    draw.rounded_rectangle([(20,370),(W//2-10,560)],radius=12,fill="white")
+    draw.text((32,382),"📋 Informasi Toko",font=load_font(14,bold=True),fill="#1a4a05")
+    info_lines=["📍 Jl. Mandala Raya RT.02/RW.02","   Ciparigi, Bogor Utara","📞 087875957722","🕐 08.00 - 21.30 Setiap Hari","💳 Tunai & Non-Tunai (QRIS/Transfer)"]
+    for ii,l in enumerate(info_lines):
+        draw.text((32,406+ii*28),l,font=fn_sm,fill="#444")
 
-# ── QR CODE ───────────────────────────────────────────────────────────────────
-qr = qrcode.QRCode(
-    version=None,
-    error_correction=qrcode.constants.ERROR_CORRECT_H,
-    box_size=9,
-    border=3,
-)
-qr.add_data("https://tokobuahabsapp.streamlit.app/")
-qr.make(fit=True)
+    draw.rounded_rectangle([(W//2+10,370),(W-20,560)],radius=12,fill="white")
+    draw.text((W//2+22,382),"⭐ Produk Unggulan",font=load_font(14,bold=True),fill="#1a4a05")
+    prods=[("🍊","Jeruk Siam","Rp 18.000/kg"),("🥭","Mangga Harum","Rp 20.000/kg"),("🍏","Apel Fuji","Rp 35.000/kg"),("🌸","Apel Pink Lady","Rp 45.000/kg")]
+    for pi,(em,nm,hg) in enumerate(prods):
+        px = W//2+22 + (pi%2)*190; py = 405 + (pi//2)*75
+        draw.text((px,py),em,font=load_font(22),fill="#1a4a05")
+        draw.text((px+30,py+2),nm,font=fn_sm,fill="#1a4a05")
+        draw.text((px+30,py+20),hg,font=fn_sm,fill="#2d6a0a")
 
-qr_img = qr.make_image(fill_color="#1a4a05", back_color="white")
-qr_img = qr_img.resize((520, 520), Image.LANCZOS)
+    # Parcel section
+    draw.text((32,580),"🎁 Parcel Buah Spesial",font=load_font(14,bold=True),fill="#1a4a05")
+    draw.rounded_rectangle([(20,600),(W-20,640)],radius=8,fill="#fffbeb")
+    draw.text((30,612),"🎁 Tersedia parcel buah untuk lebaran, ulang tahun & acara spesial. Dikemas cantik!",font=fn_sm,fill="#78350f")
+    parcel_data=[("Parcel Kecil","Rp 75.000","4 jenis"),("Parcel Sedang","Rp 125.000","6 jenis"),("Parcel Besar","Rp 200.000","9-10 jenis")]
+    pw=(W-60)//3
+    for pi,(nm,hg,isi) in enumerate(parcel_data):
+        px=20+pi*(pw+10)
+        draw.rounded_rectangle([(px,655),(px+pw,780)],radius=12,fill="white",outline="#e0f2d0",width=2)
+        draw.text((px+pw//2-10,665),"🎁",font=load_font(28),fill="#856404")
+        draw.text((px+10,705),nm,font=fn_sm,fill="#1a4a05")
+        draw.text((px+10,722),hg,font=load_font(13,True),fill="#2d6a0a")
+        draw.text((px+10,740),f"Isi: {isi}",font=fn_sm,fill="#557a3a")
 
-# White card background for QR
-card_x1, card_y1 = (W - 560) // 2, 375
-card_x2, card_y2 = card_x1 + 560, card_y1 + 620
-draw.rounded_rectangle([(card_x1, card_y1), (card_x2, card_y2)],
-                        radius=24, fill="white")
-# Shadow
-draw.rounded_rectangle([(card_x1+6, card_y1+6), (card_x2+6, card_y2+6)],
-                        radius=24, fill=(0,0,0,40))
-draw.rounded_rectangle([(card_x1, card_y1), (card_x2, card_y2)],
-                        radius=24, fill="white")
+    img.save("/home/claude/mockup_beranda.png")
+    print("mockup_beranda.png saved")
 
-# Paste QR
-qr_paste_x = (W - 520) // 2
-img.paste(qr_img, (qr_paste_x, card_y1 + 20))
+def make_katalog():
+    H = 900
+    img = Image.new("RGB", (W, H), "#f4fbee")
+    draw = ImageDraw.Draw(img)
+    draw_browser_chrome(draw, W, H)
+    draw_navbar(draw, img, 50, W, "Pesan")
+    fn_md = load_font(16, bold=True)
+    fn_sm = load_font(13)
+    fn_nm = load_font(12)
+    draw.text((32,116),"🛒 Katalog Buah Segar",font=fn_md,fill="#1a4a05")
+    # Filter tabs
+    cats=["Semua","Lokal","Impor","Parcel"]
+    cat_colors=["#2d6a0a","#e8f5e0","#e8f5e0","#e8f5e0"]
+    for ci,c in enumerate(cats):
+        bw=100; bx=32+ci*(bw+8)
+        col = "#2d6a0a" if ci==0 else "#e8f5e0"
+        tcol = "white" if ci==0 else "#2d6a0a"
+        draw.rounded_rectangle([(bx,142),(bx+bw,168)],radius=20,fill=col)
+        bb=draw.textbbox((0,0),c,font=fn_sm); tw=bb[2]-bb[0]
+        draw.text((bx+(bw-tw)//2,149),c,font=fn_sm,fill=tcol)
+    # Produk grid 3x4
+    prods=[
+        ("🍊","Jeruk Siam Pontianak","Lokal","Rp 18.000/kg"),
+        ("🟠","Jeruk Santang/Baby","Lokal","Rp 15.000/kg"),
+        ("🥭","Mangga Harum Manis","Lokal","Rp 20.000/kg"),
+        ("🔴","Buah Naga Merah","Lokal","Rp 20.000/kg"),
+        ("🍌","Pisang Cavendish","Lokal","Rp 16.000/sisir"),
+        ("⭐","Belimbing Dewi","Lokal","Rp 10.000/kg"),
+        ("🍏","Apel Fuji (Hijau)","Impor","Rp 35.000/kg"),
+        ("🍎","Apel Washington","Impor","Rp 32.000/kg"),
+        ("🌸","Apel Pink Lady","Impor","Rp 45.000/kg"),
+        ("🍇","Anggur Red Globe","Impor","Rp 45.000/kg"),
+        ("🟡","Kelengkeng Bangkok","Impor","Rp 32.000/kg"),
+        ("🍍","Nanas Subang","Lokal","Rp 10.000/buah"),
+    ]
+    cw=(W-60)//3
+    for pi,(em,nm,kat,hg) in enumerate(prods):
+        col=pi%3; row=pi//3
+        px=20+col*(cw+10); py=190+row*155
+        draw.rounded_rectangle([(px,py),(px+cw,py+145)],radius=12,fill="white",outline="#e0f2d0",width=2)
+        badge_c="#d4edda" if kat=="Lokal" else "#cce5ff"
+        badge_tc="#155724" if kat=="Lokal" else "#004085"
+        draw.rounded_rectangle([(px+cw-55,py+8),(px+cw-5,py+24)],radius=8,fill=badge_c)
+        draw.text((px+cw-52,py+10),kat,font=fn_nm,fill=badge_tc)
+        draw.text((px+12,py+10),em,font=load_font(26),fill="#1a4a05")
+        draw.text((px+12,py+55),nm,font=fn_sm,fill="#1a4a05")
+        draw.rounded_rectangle([(px+10,py+75),(px+cw-10,py+98)],radius=12,fill="#edfadd")
+        draw.text((px+14,py+79),hg,font=load_font(13,True),fill="#2d6a0a")
+        draw.rounded_rectangle([(px+10,py+106),(px+cw-10,py+132)],radius=8,fill="#2d6a0a")
+        draw.text((px+cw//2-22,py+111),"+ Keranjang",font=fn_nm,fill="white")
+    img.save("/home/claude/mockup_katalog.png")
+    print("mockup_katalog.png saved")
 
-# QR label inside card
-ctext("Scan untuk Pesan Online!", card_y1 + 550, font_small, fill="#1a4a05", shadow=False)
+def make_keranjang():
+    H = 820
+    img = Image.new("RGB", (W, H), "#f4fbee")
+    draw = ImageDraw.Draw(img)
+    draw_browser_chrome(draw, W, H)
+    draw_navbar(draw, img, 50, W, "Keranjang")
+    fn_md = load_font(15, bold=True)
+    fn_sm = load_font(13)
+    fn_nm = load_font(12)
+    draw.text((32,116),"🛍️ Keranjang Belanja",font=fn_md,fill="#1a4a05")
+    # Cart items
+    items=[("🥭","Mangga Harum Manis","per kg","2","Rp 20.000","Rp 40.000"),
+           ("🌸","Apel Pink Lady","per kg","1","Rp 45.000","Rp 45.000"),
+           ("🍇","Anggur Red Globe","per kg","1","Rp 45.000","Rp 45.000")]
+    iy=148
+    for em,nm,sat,qty,hg,sub in items:
+        draw.rounded_rectangle([(20,iy),(W-20,iy+58)],radius=10,fill="white",outline="#e0f2d0",width=1)
+        draw.text((30,iy+8),em,font=load_font(24),fill="#1a4a05")
+        draw.text((72,iy+10),nm,font=fn_sm,fill="#1a4a05")
+        draw.text((72,iy+28),sat,font=fn_nm,fill="#5aaa25")
+        draw.text((480,iy+10),f"Qty: {qty}",font=fn_sm,fill="#444")
+        draw.text((620,iy+10),sub,font=load_font(13,True),fill="#2d6a0a")
+        draw.text((W-45,iy+18),"✕",font=fn_sm,fill="#dc2626")
+        iy+=66
+    draw.line([(20,iy),(W-20,iy)],fill="#ccc",width=1)
+    draw.text((W-180,iy+8),"Total: Rp 130.000",font=load_font(14,True),fill="#2d6a0a")
+    iy += 40
+    # Form
+    draw.text((32,iy),"📝 Data Pemesanan",font=fn_md,fill="#1a4a05"); iy+=30
+    for lbl,val in [("Nama Lengkap","Budi Santoso"),("Nomor WhatsApp","08123456789"),("Alamat","Jl. Contoh No.5, Bogor...")]:
+        draw.text((32,iy),lbl,font=fn_nm,fill="#555"); iy+=18
+        draw.rounded_rectangle([(20,iy),(W-20,iy+32)],radius=6,fill="white",outline="#ccc",width=1)
+        draw.text((30,iy+8),val,font=fn_sm,fill="#333"); iy+=42
+    # Payment
+    draw.text((32,iy),"💳 Metode Pembayaran",font=fn_md,fill="#1a4a05"); iy+=30
+    draw.rounded_rectangle([(20,iy),(W//2-10,iy+55)],radius=12,fill="#f0fdf4",outline="#16a34a",width=2)
+    draw.text((30,iy+8),"💵 Tunai",font=fn_sm,fill="#15803d")
+    draw.text((30,iy+28),"Bayar saat pesanan tiba",font=fn_nm,fill="#555")
+    draw.rounded_rectangle([(W//2+10,iy),(W-20,iy+55)],radius=12,fill="#eff6ff",outline="#2563eb",width=2)
+    draw.text((W//2+20,iy+8),"📲 Non-Tunai",font=fn_sm,fill="#1d4ed8")
+    draw.text((W//2+20,iy+28),"QRIS · Transfer Bank",font=fn_nm,fill="#555")
+    iy += 70
+    draw.rounded_rectangle([(20,iy),(W-20,iy+44)],radius=10,fill="#25D366")
+    draw.text((W//2-120,iy+12),"💬 Konfirmasi & Pesan via WhatsApp",font=fn_sm,fill="white")
+    img.save("/home/claude/mockup_keranjang.png")
+    print("mockup_keranjang.png saved")
 
-# ── SCAN INSTRUCTION ─────────────────────────────────────────────────────────
-draw.rounded_rectangle([(100, 1020), (980, 1080)], radius=14, fill="#4caf1e")
-ctext("📱  Arahkan kamera HP ke QR code di atas  📱", 1033, font_small, fill="white", shadow=False)
+def make_pembayaran():
+    H = 620
+    img = Image.new("RGB", (W, H), "#f4fbee")
+    draw = ImageDraw.Draw(img)
+    draw_browser_chrome(draw, W, H)
+    draw_navbar(draw, img, 50, W, "Keranjang")
+    fn_md = load_font(15, bold=True)
+    fn_sm = load_font(13)
+    fn_nm = load_font(12)
+    draw.text((32,115),"💳 Metode Pembayaran — Non-Tunai",font=fn_md,fill="#1a4a05")
+    # Tabs
+    draw.rounded_rectangle([(20,148),(W//2-10,178)],radius=8,fill="#eff6ff",outline="#2563eb",width=2)
+    draw.text((W//4-20,156),"📱 QRIS",font=fn_sm,fill="#1d4ed8")
+    draw.rounded_rectangle([(W//2+10,148),(W-20,178)],radius=8,fill="white",outline="#ccc",width=1)
+    draw.text((3*W//4-40,156),"🏦 Transfer Bank",font=fn_sm,fill="#555")
+    # QRIS placeholder
+    draw.rounded_rectangle([(W//2-140,195),(W//2+140,435)],radius=16,fill="white",outline="#2563eb",width=2)
+    draw.text((W//2-80,210),"📱 QRIS TOKO",font=fn_sm,fill="#1d4ed8")
+    draw.text((W//2-110,240),"[Letakkan file qris.png",font=fn_nm,fill="#888")
+    draw.text((W//2-90,260)," di folder yang sama]",font=fn_nm,fill="#888")
+    for r in range(160,320,8):
+        for c in range(160,320,8):
+            if (r+c)%16==0:
+                draw.rectangle([(W//2-160+c,215+r-160),(W//2-160+c+6,215+r-160+6)],fill="#1a4a05")
+    draw.text((W//2-140,400),"Scan · Bayar · Kirim Bukti ke WA",font=fn_nm,fill="#555")
+    # Info box
+    draw.rounded_rectangle([(20,450),(W-20,510)],radius=10,fill="#eff6ff",outline="#93c5fd",width=1)
+    draw.text((30,462),"✅ Setelah scan & bayar, kirim screenshot bukti ke WhatsApp penjual",font=fn_nm,fill="#1e3a5f")
+    # Transfer info
+    draw.rounded_rectangle([(20,520),(W-20,590)],radius=10,fill="#f8faff",outline="#93c5fd",width=1)
+    draw.text((30,528),"🏦 Bank BCA  |  No. Rek: 1234567890  |  A/N: Toko Buah ABS",font=fn_sm,fill="#1e3a5f")
+    draw.text((30,552),"Nominal: Rp 130.000  |  Kirim bukti transfer ke WhatsApp",font=fn_nm,fill="#555")
+    img.save("/home/claude/mockup_pembayaran.png")
+    print("mockup_pembayaran.png saved")
 
-# ── URL box ───────────────────────────────────────────────────────────────────
-draw.rounded_rectangle([(80, 1098), (1000, 1150)], radius=12,
-                        fill=(0,0,0,60), outline="#4caf1e", width=2)
-ctext("tokobuahabsapp.streamlit.app", 1110, font_small, fill="#7fff7f", shadow=False)
+def make_admin():
+    H = 900
+    img = Image.new("RGB", (W, H), "#f0f4f8")
+    draw = ImageDraw.Draw(img)
+    draw_browser_chrome(draw, W, H, url="https://tokobuahabsapp.streamlit.app (Admin)")
+    # Admin header
+    for i in range(80):
+        ratio = i/80
+        r = int(30+(74-30)*ratio); g = int(58+(95-58)*ratio); b = int(95+(158-95)*ratio)
+        draw.line([(0,50+i),(W,50+i)],fill=(r,g,b))
+    fn_lg = load_font(22, bold=True)
+    fn_md = load_font(14, bold=True)
+    fn_sm = load_font(12)
+    def ct(text, y, font, fill="white"):
+        bb=draw.textbbox((0,0),text,font=font); tw=bb[2]-bb[0]
+        draw.text(((W-tw)//2,y),text,font=font,fill=fill)
+    ct("📊 Dashboard Admin — Toko Buah ABS",68,fn_lg)
+    ct("Panel Manajemen & Laporan Keuangan Real-Time",100,fn_sm,fill="#ccddff")
+    # Tab bar
+    tabs=["📊 Statistik","📦 Pesanan","💸 Pengeluaran","📅 Laporan Keuangan","💬 Saran"]
+    tw2=(W-20)//len(tabs)
+    for ti,t in enumerate(tabs):
+        col="#1e3a5f" if ti==0 else "#e8edf5"
+        tcol="white" if ti==0 else "#333"
+        draw.rounded_rectangle([(10+ti*tw2,142),(10+ti*tw2+tw2-4,166)],radius=6,fill=col)
+        bb=draw.textbbox((0,0),t,font=fn_sm); ttw=bb[2]-bb[0]
+        draw.text((10+ti*tw2+(tw2-ttw)//2,148),t,font=fn_sm,fill=tcol)
+    # Stat cards row 1
+    stats=[("👥","842","Total Pengunjung","#2d5f9e"),
+           ("🛒","156","Total Pesanan","#16a34a"),
+           ("💰","Rp 8.250.000","Total Pemasukan","#b45309"),
+           ("📊","Rp 5.120.000","Laba Bersih","#7c3aed")]
+    cw2=(W-50)//4
+    for si,(em,v,lbl,col) in enumerate(stats):
+        sx=20+si*(cw2+8)
+        draw.rounded_rectangle([(sx,180),(sx+cw2,265)],radius=12,fill="white")
+        draw.rectangle([(sx,180),(sx+cw2,185)],fill=col)
+        draw.text((sx+12,190),em,font=load_font(20),fill="#444")
+        draw.text((sx+12,215),v,font=load_font(14,True),fill=col)
+        draw.text((sx+12,238),lbl,font=fn_sm,fill="#666")
+    # Stats row 2
+    stats2=[("📅","12 pesanan","Hari Ini · Rp 720.000","#0891b2"),
+            ("🗓️","89 pesanan","Bulan Ini · Rp 4.2jt","#dc2626"),
+            ("💵","98","Pesanan Tunai","#15803d"),
+            ("📲","58","Pesanan Non-Tunai","#1d4ed8")]
+    for si,(em,v,lbl,col) in enumerate(stats2):
+        sx=20+si*(cw2+8)
+        draw.rounded_rectangle([(sx,278),(sx+cw2,345)],radius=12,fill="white")
+        draw.rectangle([(sx,278),(sx+cw2,282)],fill=col)
+        draw.text((sx+12,285),em,font=load_font(16),fill="#444")
+        draw.text((sx+12,306),v,font=load_font(13,True),fill=col)
+        draw.text((sx+12,325),lbl,font=fn_sm,fill="#666")
+    # Bar chart "Produk Terlaris"
+    draw.text((20,360),"🏆 Produk Terlaris",font=fn_md,fill="#1e3a5f")
+    bars=[("Mangga",89),("Apel Pink Lady",72),("Anggur",65),("Jeruk Siam",58),("Kelengkeng",45),("Apel Merah",38)]
+    chart_h=140; chart_y=385
+    max_v=89
+    bw3=(W-60)//len(bars)
+    for bi,(nm,val) in enumerate(bars):
+        bh=int(val/max_v*chart_h)
+        bx=20+bi*bw3
+        draw.rounded_rectangle([(bx+8,chart_y+chart_h-bh),(bx+bw3-8,chart_y+chart_h)],radius=4,fill="#2d5f9e")
+        draw.text((bx+4,chart_y+chart_h+4),nm[:6],font=fn_sm,fill="#555")
+    # Line chart "Tren Pemasukan"
+    draw.text((20,555),"📈 Tren Pemasukan 7 Hari",font=fn_md,fill="#1e3a5f")
+    import math
+    pts=[(20+i*120,635-int(40*abs(math.sin(i*0.9)))) for i in range(7)]
+    for i in range(len(pts)-1):
+        draw.line([pts[i],pts[i+1]],fill="#2d5f9e",width=3)
+        draw.ellipse([(pts[i][0]-5,pts[i][1]-5),(pts[i][0]+5,pts[i][1]+5)],fill="#4a90d9")
+    days=["Sen","Sel","Rab","Kam","Jum","Sab","Min"]
+    for i,(px2,py2) in enumerate(pts):
+        draw.text((px2-8,py2+8),days[i],font=fn_sm,fill="#555")
+    img.save("/home/claude/mockup_admin.png")
+    print("mockup_admin.png saved")
 
-# ── FITUR 3 kolom ─────────────────────────────────────────────────────────────
-features = [
-    ("🌿","Buah Lokal\n& Impor"),
-    ("🎁","Parcel\nSpesial"),
-    ("🚚","Antar ke\nRumah"),
-]
-feat_y = 1185
-fw = 300
-fx_starts = [50, 390, 730]
-for (em, label), fx in zip(features, fx_starts):
-    draw.rounded_rectangle([(fx, feat_y), (fx+fw, feat_y+170)],
-                            radius=18, fill=(30,100,40,180))
-    draw.rounded_rectangle([(fx, feat_y), (fx+fw, feat_y+170)],
-                            radius=18, outline="#4caf1e", width=2)
-    # Emoji circle
-    draw.ellipse([(fx+fw//2-35, feat_y+10), (fx+fw//2+35, feat_y+80)],
-                 fill="#2d8a0e")
-    ctext_stroke(em, feat_y+22, font_med, fill="white", stroke_color="#2d8a0e", stroke=2)
+def make_laporan():
+    H = 750
+    img = Image.new("RGB", (W, H), "#f0f4f8")
+    draw = ImageDraw.Draw(img)
+    draw_browser_chrome(draw, W, H, url="https://tokobuahabsapp.streamlit.app (Admin)")
+    for i in range(80):
+        ratio=i/80; r=int(30+(74-30)*ratio); g=int(58+(95-58)*ratio); b=int(95+(158-95)*ratio)
+        draw.line([(0,50+i),(W,50+i)],fill=(r,g,b))
+    fn_md=load_font(14,bold=True); fn_sm=load_font(12); fn_nm=load_font(11)
+    def ct(text,y,font,fill="white"):
+        bb=draw.textbbox((0,0),text,font=font); tw=bb[2]-bb[0]
+        draw.text(((W-tw)//2,y),text,font=font,fill=fill)
+    ct("📅 Laporan Keuangan",65,fn_md); ct("Toko Buah ABS — Data Real-Time",90,fn_sm,fill="#ccddff")
+    # Tabs
+    tabs=["📊 Statistik","📦 Pesanan","💸 Pengeluaran","📅 Laporan Keuangan","💬 Saran"]
+    tw2=(W-20)//len(tabs)
+    for ti,t in enumerate(tabs):
+        col="#1e3a5f" if ti==3 else "#e8edf5"; tcol="white" if ti==3 else "#333"
+        draw.rounded_rectangle([(10+ti*tw2,138),(10+ti*tw2+tw2-4,162)],radius=6,fill=col)
+        bb=draw.textbbox((0,0),t,font=fn_sm); ttw=bb[2]-bb[0]
+        draw.text((10+ti*tw2+(tw2-ttw)//2,144),t,font=fn_sm,fill=tcol)
+    # Period selector
+    draw.text((20,175),"Periode:",font=fn_sm,fill="#1e3a5f")
+    for pi,p in enumerate(["Harian","Bulanan","Tahunan"]):
+        col="#1e3a5f" if pi==1 else "white"; tcol="white" if pi==1 else "#333"
+        draw.rounded_rectangle([(90+pi*90,172),(175+pi*90,196)],radius=8,fill=col,outline="#ccc",width=1)
+        draw.text((100+pi*90,178),p,font=fn_sm,fill=tcol)
+    draw.text((380,175),"Pilih bulan: Juni 2025",font=fn_sm,fill="#333")
+    # Metrics
+    metrics=[("Pesanan","89"),("Total Pemasukan","Rp 4.820.000"),("Rata-rata/Pesanan","Rp 54.157"),("Tunai / Non-Tunai","54 / 35")]
+    mw=(W-50)//4
+    for mi,(lbl,v) in enumerate(metrics):
+        mx=20+mi*(mw+8)
+        draw.rounded_rectangle([(mx,210),(mx+mw,260)],radius=10,fill="white")
+        draw.text((mx+8,218),lbl,font=fn_sm,fill="#666")
+        draw.text((mx+8,236),v,font=load_font(12,True),fill="#1e3a5f")
+    # Table
+    headers=["No Order","Tanggal","Nama","Alamat","Total","Pembayaran","Status"]
+    rows=[["#089","01-06-2025","Budi Santoso","Jl. Contoh...","Rp 130.000","Tunai","Selesai"],
+          ["#090","01-06-2025","Ani Putri","Jl. Mawar...","Rp 85.000","Non-Tunai","Dikirim"],
+          ["#091","02-06-2025","Candra","Jl. Melati...","Rp 200.000","Tunai","Diproses"],
+          ["#092","02-06-2025","Dewi S.","Jl. Anggrek...","Rp 45.000","Non-Tunai","Baru"]]
+    col_w=[75,95,90,115,95,90,75]
+    th=272
+    draw.rectangle([(20,th),(W-20,th+22)],fill="#1e3a5f")
+    x=22
+    for ci,(h,cw3) in enumerate(zip(headers,col_w)):
+        draw.text((x,th+5),h,font=fn_nm,fill="white"); x+=cw3
+    for ri,row in enumerate(rows):
+        ry=th+22+ri*24; bg="white" if ri%2==0 else "#f0f4f8"
+        draw.rectangle([(20,ry),(W-20,ry+24)],fill=bg)
+        x=22
+        for ci,(cell,cw3) in enumerate(zip(row,col_w)):
+            col="#dc2626" if cell=="Baru" else "#0891b2" if cell=="Diproses" else "#16a34a" if cell=="Selesai" else "#b45309" if cell=="Dikirim" else "#333"
+            draw.text((x,ry+5),cell,font=fn_nm,fill=col); x+=cw3
+    draw.text((W-200,th+22+len(rows)*24+8),"Total (Juni 2025): Rp 4.820.000",font=load_font(12,True),fill="#1e3a5f")
+    # Export button
+    ey=th+22+len(rows)*24+35
+    draw.rounded_rectangle([(20,ey),(W-20,ey+36)],radius=8,fill="#1e3a5f")
+    ct("📊 Download Laporan Excel",ey+10,fn_sm)
+    img.save("/home/claude/mockup_laporan.png")
+    print("mockup_laporan.png saved")
 
-    lines = label.split("\n")
-    for li, line in enumerate(lines):
-        bbox = draw.textbbox((0,0), line, font=font_small)
-        lw = bbox[2]-bbox[0]
-        lx = fx + (fw-lw)//2
-        draw.text((lx, feat_y+88+li*30), line, font=font_small, fill="white")
+def make_pengeluaran():
+    H = 680
+    img = Image.new("RGB", (W, H), "#f0f4f8")
+    draw = ImageDraw.Draw(img)
+    draw_browser_chrome(draw, W, H, url="https://tokobuahabsapp.streamlit.app (Admin)")
+    for i in range(80):
+        ratio=i/80; r=int(30+(74-30)*ratio); g=int(58+(95-58)*ratio); b=int(95+(158-95)*ratio)
+        draw.line([(0,50+i),(W,50+i)],fill=(r,g,b))
+    fn_md=load_font(14,bold=True); fn_sm=load_font(12); fn_nm=load_font(11)
+    def ct(text,y,font,fill="white"):
+        bb=draw.textbbox((0,0),text,font=font); tw=bb[2]-bb[0]
+        draw.text(((W-tw)//2,y),text,font=font,fill=fill)
+    ct("💸 Catatan Pengeluaran",65,fn_md); ct("Toko Buah ABS",90,fn_sm,fill="#ccddff")
+    draw.text((20,140),"💸 Catat Pengeluaran Baru",font=fn_md,fill="#1e3a5f")
+    # Form
+    draw.rounded_rectangle([(20,165),(W-20,285)],radius=12,fill="white")
+    fields=[("Tanggal","02 Juni 2025"),("Kategori","Restok Buah Impor"),("Jumlah (Rp)","Rp 450.000"),("Keterangan","Beli anggur & kelengkeng di supplier")]
+    for fi,(lbl,v) in enumerate(fields[:2]):
+        fx=20+fi*(W//2-15); fy=175
+        draw.text((fx+10,fy),lbl,font=fn_sm,fill="#555")
+        draw.rounded_rectangle([(fx+10,fy+18),(fx+W//2-30,fy+42)],radius=6,fill="#f5f5f5",outline="#ccc",width=1)
+        draw.text((fx+18,fy+24),v,font=fn_sm,fill="#333")
+    for fi,(lbl,v) in enumerate(fields[2:]):
+        fx=20+fi*(W//2-15); fy=225
+        draw.text((fx+10,fy),lbl,font=fn_sm,fill="#555")
+        draw.rounded_rectangle([(fx+10,fy+18),(fx+W//2-30,fy+42)],radius=6,fill="#f5f5f5",outline="#ccc",width=1)
+        draw.text((fx+18,fy+24),v,font=fn_sm,fill="#333")
+    draw.rounded_rectangle([(20,272),(W-20,290)],radius=6,fill="#1e3a5f")
+    ct("💾 Simpan Pengeluaran",276,fn_sm)
+    # List
+    draw.text((20,305),"📋 Riwayat Pengeluaran",font=fn_md,fill="#1e3a5f")
+    draw.text((W-200,310),"Total: Rp 3.130.000",font=load_font(12,True),fill="#dc2626")
+    expenses=[("01-06","Restok Buah Lokal","Beli mangga 10kg + jeruk 5kg","Rp 320.000"),
+              ("01-06","Transportasi","Ongkos ke pasar","Rp 50.000"),
+              ("02-06","Restok Buah Impor","Beli anggur & kelengkeng","Rp 450.000"),
+              ("02-06","Kemasan/Parcel","Kardus & pita parcel","Rp 180.000"),
+              ("03-06","Listrik/Air","Tagihan listrik","Rp 250.000")]
+    for ei,exp in enumerate(expenses):
+        ey=332+ei*58
+        draw.rounded_rectangle([(20,ey),(W-20,ey+50)],radius=8,fill="white")
+        draw.rectangle([(20,ey),(24,ey+50)],fill="#dc2626")
+        draw.text((30,ey+4),exp[0],font=fn_nm,fill="#888")
+        draw.text((80,ey+4),exp[1],font=load_font(12,True),fill="#1e3a5f")
+        draw.text((30,ey+22),exp[2],font=fn_nm,fill="#555")
+        draw.text((W-130,ey+4),exp[3],font=load_font(12,True),fill="#dc2626")
+        draw.text((W-38,ey+4),"x",font=fn_sm,fill="#999")
+    img.save("/home/claude/mockup_pengeluaran.png")
+    print("mockup_pengeluaran.png saved")
 
-# ── PAYMENT section ───────────────────────────────────────────────────────────
-draw.line([(80, 1380), (1000, 1380)], fill="#4caf1e", width=2)
-ctext("💳  Pembayaran", 1395, font_med, fill="#b6f5c0")
-
-pay_items = [("💵","Tunai"), ("📱","QRIS"), ("🏦","Transfer Bank")]
-px_starts = [100, 420, 700]
-for (em, lab), px in zip(pay_items, px_starts):
-    draw.rounded_rectangle([(px, 1440), (px+250, 1510)],
-                            radius=12, fill=(0,0,0,50), outline="#4caf1e", width=1)
-    draw.text((px+18, 1455), em, font=font_norm, fill="white")
-    bbox = draw.textbbox((0,0), lab, font=font_small)
-    draw.text((px+70, 1461), lab, font=font_small, fill="white")
-
-# ── INFO section ─────────────────────────────────────────────────────────────
-draw.line([(80, 1535), (1000, 1535)], fill="#4caf1e", width=2)
-
-info_lines = [
-    ("📍", "Jl. Mandala Raya RT.02/RW.02, Ciparigi"),
-    ("",   "Kec. Bogor Utara, Kota Bogor 16157"),
-    ("📞", "087875957722"),
-    ("🕐", "Buka Setiap Hari  08.00 – 21.30 WIB"),
-]
-iy = 1550
-for em, text in info_lines:
-    if em:
-        draw.text((90, iy), em, font=font_norm, fill="#7fff7f")
-    draw.text((145 if em else 145, iy+4), text, font=font_small, fill="white")
-    iy += 44
-
-# ── BOTTOM BADGE ──────────────────────────────────────────────────────────────
-draw.rounded_rectangle([(40, 1760), (1040, 1880)], radius=24, fill="#1f7a2f")
-draw.rounded_rectangle([(44, 1764), (1036, 1876)], radius=22, outline="#4caf1e", width=3)
-ctext("🍊 🍎 🥭 🍌 🍇 🍍 🐉", 1775, font_large, fill="white")
-ctext("Order Online — Lebih Mudah, Lebih Cepat!", 1840, font_small, fill="#d0f5d8")
-
-# ── Save ──────────────────────────────────────────────────────────────────────
-OUT = "/home/claude/poster_toko_buah_abs.png"
-img.save(OUT, "PNG", dpi=(300,300))
-print(f"Saved {OUT}  ({img.size})")
+make_beranda()
+make_katalog()
+make_keranjang()
+make_pembayaran()
+make_admin()
+make_laporan()
+make_pengeluaran()
+print("ALL DONE")
